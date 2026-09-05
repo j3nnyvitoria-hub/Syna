@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYNA</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#7C3AED">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SYNA">
+</head>
+<script>
+if ("serviceWorker" in navigator) {
+   window.addEventListener("load", () => {
+       navigator.serviceWorker.register("./sw.js")
+           .then(() => console.log("SYNA PWA ativado!"))
+           .catch(error => console.error("Erro no PWA:", error));
+   });
+}
+</script>
+</body>
+</html>
+<body>
+<!-- ================= SPLASH ================= -->
+<section id="splash" class="screen splash-screen">
+<div class="splash-content">
+<div class="syna-logo">
+<span>S</span>
+<span>Y</span>
+<span>N</span>
+<span>A</span>
+</div>
+<p>Conecte-se mais com a vida.</p>
+<div class="loading-line">
+<div></div>
+</div>
+</div>
+</section>
+
+<!-- ================= LOGIN ================= -->
+<section id="loginScreen" class="screen auth-screen hidden">
+<div class="auth-box">
+<div class="mini-logo">SYNA</div>
+<h1>Bem-vindo de volta</h1>
+<p class="auth-subtitle">
+               Seu equilíbrio começa aqui.
+</p>
+<form id="loginForm">
+<label>E-mail</label>
+<input
+                   type="email"
+                   id="loginEmail"
+                   placeholder="seu@email.com"
+                   required
+>
+<label>Senha</label>
+<div class="password-box">
+<input
+                       type="password"
+                       id="loginPassword"
+                       placeholder="Digite sua senha"
+                       required
+>
+<button
+                       type="button"
+                       id="showLoginPassword"
+                       class="eye-button"
+>
+                       ◉
+</button>
+</div>
+<div class="auth-options">
+<label class="remember">
+<input type="checkbox" id="rememberMe">
+                       Lembrar de mim
+</label>
+<button
+                       type="button"
+                       id="forgotPassword"
+                       class="link-button"
+>
+                       Esqueci minha senha
+</button>
+</div>
+<button class="primary-button" type="submit">
+                   Entrar
+</button>
+</form>
+<p class="switch-auth">
+               Ainda não tem uma conta?
+<button id="goRegister" class="link-button">
+                   Criar conta
+</button>
+</p>
+</div>
+</section>
+
+<!-- ================= CADASTRO ================= -->
+<section id="registerScreen" class="screen auth-screen hidden">
+<div class="auth-box">
+<div class="mini-logo">SYNA</div>
+<h1>Crie sua conta</h1>
+<p class="auth-subtitle">
+               Comece a cuidar do seu equilíbrio.
+</p>
+<form id="registerForm">
+<label>Nome</label>
+<input
+                   type="text"
+                   id="registerName"
+                   placeholder="Como podemos te chamar?"
+                   required
+>
+<label>E-mail</label>
+<input
+                   type="email"
+                   id="registerEmail"
+                   placeholder="seu@email.com"
+                   required
+>
+<label>Senha</label>
+<div class="password-box">
+<input
+                       type="password"
+                       id="registerPassword"
+                       placeholder="Crie uma senha"
+                       required
+>
+<button
+                       type="button"
+                       id="showRegisterPassword"
+                       class="eye-button"
+>
+                       ◉
+</button>
+</div>
+<label>Confirme sua senha</label>
+<input
+                   type="password"
+                   id="registerPassword2"
+                   placeholder="Digite novamente"
+                   required
+>
+<label class="terms">
+<input type="checkbox" id="terms" required>
+<span>
+                       Aceito os termos de uso do SYNA.
+</span>
+</label>
+<button class="primary-button" type="submit">
+                   Criar minha conta
+</button>
+</form>
+<p class="switch-auth">
+               Já possui uma conta?
+<button id="backToLogin" class="link-button">
+                   Entrar
+</button>
+</p>
+</div>
+</section>
+
+<!-- ================= APP ================= -->
+<section id="appScreen" class="app-screen hidden">
+<!-- HEADER -->
+<header class="app-header">
+<div>
+<p class="small-text">
+                   Olá,
+</p>
+<h2 id="userName">
+                   Usuário
+</h2>
+</div>
+<button
+               class="profile-button"
+               data-page="profile"
+               type="button"
+>
+<span id="headerInitial">U</span>
+</button>
+</header>
+
+<main class="app-content">
+
+<!-- ================= HOME ================= -->
+<section id="homePage" class="page">
+<div class="welcome-card">
+<span class="welcome-label">
+                       SEU MOMENTO
+</span>
+<h1>
+                       Como você está hoje?
+</h1>
+<p>
+                       Não existe resposta certa.
+                       Apenas seja sincero com você.
+</p>
+<div class="mood-buttons">
+<button class="mood-button" data-mood="bem">
+<span>😊</span>
+<small>Bem</small>
+</button>
+<button class="mood-button" data-mood="meio">
+<span>😐</span>
+<small>Meio termo</small>
+</button>
+<button class="mood-button" data-mood="mal">
+<span>😔</span>
+<small>Mal</small>
+</button>
+</div>
+<div id="moodResult" class="mood-result"></div>
+</div>
+
+<!-- FRASE DO DIA -->
+<div class="daily-card">
+<div class="section-label">
+                       FRASE DO DIA
+</div>
+<div class="quote-mark">
+                       “
+</div>
+<p id="dailyPhrase">
+                       Hoje é um bom dia para se reconectar com aquilo que realmente importa.
+</p>
+<div class="quote-mark quote-end">
+                       ”
+</div>
+</div>
+
+<!-- ATALHOS -->
+<div class="section-heading">
+<h3>
+                       O que você quer fazer?
+</h3>
+</div>
+<div class="quick-grid">
+<button class="quick-card" data-page="missions">
+<span>🎯</span>
+<strong>Missões</strong>
+<small>
+                           Desafios para sair da rotina
+</small>
+</button>
+<button class="quick-card" data-page="diary">
+<span>📖</span>
+<strong>Meu desabafo</strong>
+<small>
+                           Coloque seus pensamentos para fora
+</small>
+</button>
+<button class="quick-card" data-page="explore">
+<span>✨</span>
+<strong>Explorar</strong>
+<small>
+                           Descubra novas experiências
+</small>
+</button>
+<button class="quick-card" data-page="profile">
+<span>📊</span>
+<strong>Meu equilíbrio</strong>
+<small>
+                           Veja seu progresso
+</small>
+</button>
+</div>
+</section>
+
+<!-- ================= DIÁRIO ================= -->
+<section id="diaryPage" class="page hidden">
+<div class="page-title">
+<span>📖</span>
+<div>
+<h1>Meu desabafo</h1>
+<p>
+                           Escreva sem precisar filtrar seus pensamentos.
+</p>
+</div>
+</div>
+<textarea
+                   id="diaryText"
+                   class="big-textarea"
+                   placeholder="O que está passando pela sua cabeça?"
+></textarea>
+<button
+                   id="saveDiaryButton"
+                   class="primary-button"
+>
+                   Salvar desabafo
+</button>
+<div class="section-heading">
+<h3>Meus registros</h3>
+</div>
+<div id="diaryHistory"></div>
+</section>
+
+<!-- ================= MISSÕES ================= -->
+<section id="missionsPage" class="page hidden">
+<div class="page-title">
+<span>🎯</span>
+<div>
+<h1>Missões</h1>
+<p>
+                           Pequenas ações podem mudar seu dia.
+</p>
+</div>
+</div>
+<div class="progress-card">
+<div class="progress-top">
+<strong>Progresso de hoje</strong>
+<span id="missionProgressText">
+                           0/3
+</span>
+</div>
+<div class="progress-bar">
+<div id="missionProgress"></div>
+</div>
+</div>
+<div id="missionsList"></div>
+</section>
+
+<!-- ================= EXPLORAR ================= -->
+<section id="explorePage" class="page hidden">
+<div class="page-title">
+<span>✨</span>
+<div>
+<h1>Explorar</h1>
+<p>
+                           Use o SYNA para viver fora da tela.
+</p>
+</div>
+</div>
+
+<div class="explore-highlight">
+<strong>
+                       Menos tela. Mais vida.
+</strong>
+<p>
+                       Escolha uma experiência e transforme
+                       alguns minutos do seu dia em algo real.
+</p>
+</div>
+
+<div class="explore-grid">
+
+<button
+                       class="explore-card"
+                       data-explore="breathing"
+                       type="button"
+>
+<span class="explore-icon">🌬️</span>
+<div>
+<strong>Respiração</strong>
+<small>
+                               Desacelere por alguns minutos.
+</small>
+</div>
+<b>›</b>
+</button>
+
+<button
+                       class="explore-card"
+                       data-explore="offline"
+                       type="button"
+>
+<span class="explore-icon">📵</span>
+<div>
+<strong>Momento OFF</strong>
+<small>
+                               Fique um tempo longe do celular.
+</small>
+</div>
+<b>›</b>
+</button>
+
+<button
+                       class="explore-card"
+                       data-explore="connections"
+                       type="button"
+>
+<span class="explore-icon">🤝</span>
+<div>
+<strong>Conexões</strong>
+<small>
+                               Família, amigos, casal e pessoas importantes.
+</small>
+</div>
+<b>›</b>
+</button>
+
+<button
+                       class="explore-card"
+                       data-explore="games"
+                       type="button"
+>
+<span class="explore-icon">🎮</span>
+<div>
+<strong>Jogos & brincadeiras</strong>
+<small>
+                               Divirta-se com quem está perto.
+</small>
+</div>
+<b>›</b>
+</button>
+
+<button
+                       class="explore-card"
+                       data-explore="night"
+                       type="button"
+>
+<span class="explore-icon">🌙</span>
+<div>
+<strong>Ideias para uma noite</strong>
+<small>
+                               Crie uma noite diferente.
+</small>
+</div>
+<b>›</b>
+</button>
+
+<button
+                       class="explore-card"
+                       data-explore="reflection"
+                       type="button"
+>
+<span class="explore-icon">💭</span>
+<div>
+<strong>Reflexão</strong>
+<small>
+                               Perguntas para pensar sobre você.
+</small>
+</div>
+<b>›</b>
+</button>
+
+<button
+                       class="explore-card"
+                       data-explore="creative"
+                       type="button"
+>
+<span class="explore-icon">🎨</span>
+<div>
+<strong>Criatividade</strong>
+<small>
+                               Faça algo novo.
+</small>
+</div>
+<b>›</b>
+</button>
+
+<button
+                       class="explore-card"
+                       data-explore="relax"
+                       type="button"
+>
+<span class="explore-icon">🧘</span>
+<div>
+<strong>Relaxar</strong>
+<small>
+                               Pequenas práticas para desacelerar.
+</small>
+</div>
+<b>›</b>
+</button>
+</div>
+</section>
+
+<!-- ================= PERFIL ================= -->
+<section id="profilePage" class="page hidden">
+<div class="profile-header">
+<div id="profileInitial" class="profile-avatar">
+                       U
+</div>
+<h1 id="profileDisplayName">
+                       Usuário
+</h1>
+<p id="profileDisplayEmail">
+                       email@email.com
+</p>
+</div>
+
+<div class="stats-grid">
+<div class="stat-card">
+<strong id="xpValue">0</strong>
+<span>XP</span>
+</div>
+<div class="stat-card">
+<strong id="levelValue">1</strong>
+<span>Nível</span>
+</div>
+<div class="stat-card">
+<strong id="streakValue">0</strong>
+<span>Dias</span>
+</div>
+</div>
+
+<div class="balance-card">
+<h3>Meu equilíbrio</h3>
+<div class="balance-row">
+<span>📵 Tempo OFF</span>
+<strong id="offlineMinutesValue">0 min</strong>
+</div>
+<div class="balance-row">
+<span>🤝 Conexões</span>
+<strong id="connectionsValue">0</strong>
+</div>
+<div class="balance-row">
+<span>💭 Reflexões</span>
+<strong id="reflectionsValue">0</strong>
+</div>
+<div class="balance-row">
+<span>🎨 Criatividade</span>
+<strong id="creativeValue">0</strong>
+</div>
+</div>
+
+<div class="profile-actions">
+<button id="editProfileButton" class="secondary-button">
+                       Editar perfil
+</button>
+<button id="changePasswordButton" class="secondary-button">
+                       Alterar senha
+</button>
+<button id="achievementsButton" class="secondary-button">
+                       Conquistas
+</button>
+<button id="logoutButton" class="danger-button">
+                       Sair da conta
+</button>
+</div>
+</section>
+</main>
+
+<!-- ================= NAVEGAÇÃO ================= -->
+<nav class="bottom-nav">
+<button data-page="home" class="nav-button active">
+<span>⌂</span>
+<small>Início</small>
+</button>
+<button data-page="missions" class="nav-button">
+<span>🎯</span>
+<small>Missões</small>
+</button>
+<button data-page="explore" class="nav-button">
+<span>✦</span>
+<small>Explorar</small>
+</button>
+<button data-page="diary" class="nav-button">
+<span>♡</span>
+<small>Desabafo</small>
+</button>
+<button data-page="profile" class="nav-button">
+<span>○</span>
+<small>Perfil</small>
+</button>
+</nav>
+</section>
+
+<!-- ================= MODAL EXPLORAR ================= -->
+<div id="exploreModal" class="modal hidden">
+<div
+           id="modalOverlay"
+           class="modal-overlay"
+></div>
+<div class="modal-card">
+<button
+               id="closeExploreModal"
+               class="modal-close"
+               type="button"
+>
+               ×
+</button>
+<div id="modalContent"></div>
+</div>
+</div>
+
+<!-- ================= TOAST ================= -->
+<div id="toast" class="toast"></div>
+
+<script src="./script.js"></script>
+<script src="./script.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+   window.addEventListener("load", () => {
+       navigator.serviceWorker.register("./sw.js")
+           .then(() => console.log("SYNA PWA ativado!"))
+           .catch(error => console.error("Erro no PWA:", error));
+   });
+}
+</script>
+</body>
+</html>
