@@ -1,57 +1,78 @@
-/* =========================================================
-   SYNA
-   Equilíbrio entre vida digital e vida real
-========================================================= */
 
-const USERS_KEY = "SYNA_USERS";
-const SESSION_KEY = "SYNA_SESSION";
+const SUPABASE_URL = "https://bepocqfohmkrrdzmowrv.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_PHXFNYdmHo5i8sRdxi23Hg_KsjbwCz3";
+const LEGACY_USERS_KEY = "SYNA_USERS";
+const LOCAL_DATA_PREFIX = "SYNA_LOCAL_DATA_";
+const TERMS_VERSION = "1.0";
 
+let supabaseClient = null;
 let currentUser = null;
-
 let activeTimer = null;
 
-
-/* =========================================================
-   UTILIDADES
-========================================================= */
-
-function getUsers() {
-
-    try {
-        return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-    } catch {
-        return [];
-    }
-
+function localDataKey(userId) {
+    return LOCAL_DATA_PREFIX + userId;
 }
-
-
-function saveUsers(users) {
-
-    localStorage.setItem(
-        USERS_KEY,
-        JSON.stringify(users)
-    );
-
-}
-
 
 function saveCurrentUser() {
+    if (!currentUser?.id) return;
+    try {
+        // Diário, humor, missões e progresso ficam somente neste aparelho/navegador.
+        localStorage.setItem(localDataKey(currentUser.id), JSON.stringify(currentUser));
+    } catch (error) {
+        console.error("Não foi possível salvar os dados locais:", error);
+        showToast("Não foi possível salvar neste aparelho. Verifique o espaço disponível.");
+    }
+}
 
-    const users = getUsers();
+function migrateLegacyLocalData(authUser) {
+    // Migra os dados antigos deste e-mail para a nova conta, sem enviar nada à nuvem.
+    try {
+        const legacyUsers = JSON.parse(localStorage.getItem(LEGACY_USERS_KEY) || "[]");
+        const email = (authUser.email || "").toLowerCase();
+        const legacy = legacyUsers.find(user => (user.email || "").toLowerCase() === email);
+        const key = localDataKey(authUser.id);
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
 
-    const index = users.findIndex(
-        user => user.email === currentUser.email
-    );
+        if (!saved && legacy) {
+            const { password, email: oldEmail, name, ...oldData } = legacy;
+            saved = {
+                ...oldData,
+                id: authUser.id,
+                email: authUser.email,
+                name: name || authUser.user_metadata?.name || email.split("@")[0]
+            };
+            localStorage.setItem(key, JSON.stringify(saved));
+        }
 
-    if (index !== -1) {
+        if (legacy) {
+            const remaining = legacyUsers.filter(user => (user.email || "").toLowerCase() !== email);
+            if (remaining.length) localStorage.setItem(LEGACY_USERS_KEY, JSON.stringify(remaining));
+            else localStorage.removeItem(LEGACY_USERS_KEY);
+        }
+    } catch (error) {
+        console.warn("Não foi possível migrar os dados locais antigos:", error);
+    }
+}
 
-        users[index] = currentUser;
-
-        saveUsers(users);
-
+function loadLocalUser(authUser) {
+    migrateLegacyLocalData(authUser);
+    let saved = null;
+    try {
+        saved = JSON.parse(localStorage.getItem(localDataKey(authUser.id)) || "null");
+    } catch (error) {
+        console.warn("Dados locais inválidos:", error);
     }
 
+    const defaultName = authUser.user_metadata?.name || authUser.user_metadata?.full_name || (authUser.email || "Pessoa").split("@")[0];
+    currentUser = prepareUser({
+        ...(saved || {}),
+        id: authUser.id,
+        email: authUser.email,
+        name: saved?.name || defaultName
+    });
+    saveCurrentUser();
+    return currentUser;
 }
 
 
@@ -151,6 +172,9 @@ function prepareUser(user) {
     if (!user.streak) user.streak = 0;
 
     if (!user.lastActivity) user.lastActivity = null;
+    if (typeof user.profilePhoto !== "string") user.profilePhoto = "";
+    if (typeof user.theme !== "string") user.theme = "light";
+    if (!user.focusSession) user.focusSession = null;
 
     return user;
 
@@ -188,40 +212,36 @@ document.addEventListener("DOMContentLoaded", () => {
    INICIALIZAÇÃO
 ========================================================= */
 
-function startApp() {
+async function startApp() {
+    try {
+        if (!window.supabase?.createClient) {
+            throw new Error("A biblioteca do Supabase não carregou.");
+        }
+        if (!supabaseClient) {
+            supabaseClient = window.supabase.createClient(
+                SUPABASE_URL,
+                SUPABASE_PUBLISHABLE_KEY,
+                { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+            );
+        }
 
-    const session = localStorage.getItem(SESSION_KEY);
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        if (error) throw error;
 
-    if (!session) {
+        if (!session) {
+            currentUser = null;
+            showScreen("loginScreen");
+            return;
+        }
 
+        loadLocalUser(session.user);
+        showApp();
+    } catch (error) {
+        console.error("Erro ao iniciar o SYNA:", error);
         showScreen("loginScreen");
-
-        return;
-
+        showToast("Não foi possível conectar ao SYNA. Confira sua internet e tente novamente.");
     }
-
-    const users = getUsers();
-
-    const user = users.find(
-        item => item.email === session
-    );
-
-    if (!user) {
-
-        localStorage.removeItem(SESSION_KEY);
-
-        showScreen("loginScreen");
-
-        return;
-
-    }
-
-    currentUser = prepareUser(user);
-
-    showApp();
-
 }
-
 
 function showScreen(id) {
 
@@ -299,6 +319,11 @@ document.querySelectorAll(".explore-card").forEach(card => {
         () => showScreen("loginScreen")
     );
 
+    document.getElementById("openTerms")?.addEventListener("click", event => {
+        event.preventDefault();
+        openTerms();
+    });
+
 
     document.getElementById("forgotPassword")?.addEventListener(
         "click",
@@ -330,6 +355,7 @@ document.querySelectorAll(".explore-card").forEach(card => {
 
             const page = button.dataset.page;
 
+            if (isFocusActive()) { showToast("Finalize o Modo Foco antes de navegar pelo SYNA."); return; }
             if (page) {
 
                 openPage(page);
@@ -421,6 +447,11 @@ document.querySelectorAll(".explore-card").forEach(card => {
         showAchievements
     );
 
+    document.getElementById("photoProfileButton")?.addEventListener("click", () => document.getElementById("profilePhotoInput")?.click());
+    document.getElementById("profilePhotoInput")?.addEventListener("change", handleProfilePhoto);
+    document.getElementById("themeToggleButton")?.addEventListener("click", toggleTheme);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshFocusSession(); });
+
 }
 
 
@@ -428,183 +459,132 @@ document.querySelectorAll(".explore-card").forEach(card => {
    CONTA
 ========================================================= */
 
-function createAccount() {
+async function createAccount() {
+    const name = document.getElementById("registerName")?.value.trim() || "";
+    const email = document.getElementById("registerEmail").value.trim().toLowerCase();
+    const password = document.getElementById("registerPassword").value;
+    const password2 = document.getElementById("registerPassword2").value;
 
-    const name =
-        document.getElementById("registerName").value.trim();
-
-    const email =
-        document.getElementById("registerEmail").value.trim().toLowerCase();
-
-    const password =
-        document.getElementById("registerPassword").value;
-
-    const password2 =
-        document.getElementById("registerPassword2").value;
-
-
-    if (password !== password2) {
-
-        showToast("As senhas não são iguais.");
-
+    if (!name) {
+        showToast("Digite seu nome.");
         return;
-
     }
-
-
-    if (password.length < 6) {
-
-        showToast("A senha precisa ter pelo menos 6 caracteres.");
-
-        return;
-
-    }
-
-
-    const users = getUsers();
-
-
-    if (users.some(user => user.email === email)) {
-
-        showToast("Este e-mail já está cadastrado.");
-
-        return;
-
-    }
-
-
-    const user = prepareUser({
-
-        name,
-        email,
-        password,
-
-        xp: 0,
-        streak: 0,
-
-        diary: [],
-        moods: [],
-        reflections: [],
-        connectionHistory: [],
-        gameHistory: [],
-        offlineSessions: [],
-        completedMissions: [],
-
-        exploreStats: {
-
-            breathing: 0,
-            relax: 0,
-            creative: 0,
-            offlineMinutes: 0
-
-        }
-
-    });
-
-
-    users.push(user);
-
-    saveUsers(users);
-
-    currentUser = user;
-
-    localStorage.setItem(
-        SESSION_KEY,
-        user.email
-    );
-
-
-    showToast("Conta criada com sucesso!");
-
-    setTimeout(() => {
-
-        showApp();
-
-    }, 700);
-
-}
-
-
-function login() {
-
-    const email =
-        document.getElementById("loginEmail").value.trim().toLowerCase();
-
-    const password =
-        document.getElementById("loginPassword").value;
-
-
-    const users = getUsers();
-
-    const user = users.find(
-        item =>
-            item.email === email &&
-            item.password === password
-    );
-
-
-    if (!user) {
-
-        showToast("E-mail ou senha incorretos.");
-
-        return;
-
-    }
-
-
-    currentUser = prepareUser(user);
-
-    localStorage.setItem(
-        SESSION_KEY,
-        user.email
-    );
-
-
-    showToast("Login realizado!");
-
-    setTimeout(() => {
-
-        showApp();
-
-    }, 500);
-
-}
-
-
-function recoverPassword() {
-
-    const email =
-        document.getElementById("loginEmail").value.trim().toLowerCase();
-
     if (!email) {
-
-        showToast("Digite seu e-mail primeiro.");
-
+        showToast("Digite seu e-mail.");
         return;
-
     }
-
-    const users = getUsers();
-
-    const user = users.find(
-        item => item.email === email
-    );
-
-    if (!user) {
-
-        showToast("Não encontramos uma conta com esse e-mail.");
-
+    if (password !== password2) {
+        showToast("As senhas não são iguais.");
         return;
-
     }
-
-    showToast(
-        "Para o protótipo: sua senha cadastrada é " +
-        user.password
-    );
-
+    if (password.length < 6) {
+        showToast("A senha precisa ter pelo menos 6 caracteres.");
+        return;
+    }
+    if (!document.getElementById("terms")?.checked) {
+        showToast("Você precisa ler e aceitar os termos de uso.");
+        return;
+    }
+    if (!supabaseClient) {
+   showToast("Conexão com o servidor não inicializada. Recarregue a página e tente novamente.");
+   await startApp();
+   if (!supabaseClient) return;
 }
 
+    try {
+        const acceptedAt = new Date().toISOString();
+        const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    name,
+                    terms_accepted: true,
+                    terms_accepted_at: acceptedAt,
+                    terms_version: TERMS_VERSION
+                }
+            }
+        });
+        if (error) throw error;
+
+        if (data.session && data.user) {
+            loadLocalUser(data.user);
+            showToast("Conta criada! Seus dados pessoais ficam salvos somente neste aparelho.");
+            setTimeout(showApp, 500);
+        } else {
+            showToast("Enviamos um link de confirmação para seu e-mail. Confirme para ativar sua conta e depois faça login.");
+            showScreen("loginScreen");
+        }
+    } catch (error) {
+        console.error("Erro no cadastro:", error);
+        const msg = error.message || "Não foi possível criar sua conta.";
+        showToast(msg.toLowerCase().includes("already registered") ? "Este e-mail já possui uma conta. Faça login." : msg);
+    }
+}
+
+async function login() {
+    const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+    const password = document.getElementById("loginPassword").value;
+
+    try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+
+        loadLocalUser(data.user);
+        showToast("Login realizado! Seus dados deste aparelho foram carregados.");
+        setTimeout(showApp, 400);
+    } catch (error) {
+        console.error("Erro no login:", error);
+        showToast(error.message?.toLowerCase().includes("email not confirmed")
+            ? "Confirme seu e-mail antes de entrar."
+            : "E-mail ou senha incorretos, ou não foi possível conectar.");
+    }
+}
+
+async function recoverPassword() {
+    const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+    if (!email) {
+        showToast("Digite seu e-mail primeiro.");
+        return;
+    }
+    try {
+        const redirectTo = window.location.origin + window.location.pathname;
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) throw error;
+        showToast("Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.");
+    } catch (error) {
+        console.error("Erro ao recuperar senha:", error);
+        showToast("Não foi possível enviar o e-mail de recuperação. Tente novamente.");
+    }
+}
+
+function openTerms() {
+    const content = `
+        <div class="terms-content">
+            <h2>Termos de Uso do SYNA</h2>
+            <p><strong>Versão 1.0 — 30 de outubro de 2026</strong></p>
+            <h3>1. Sobre o SYNA</h3>
+            <p>O SYNA é um projeto de apoio ao equilíbrio entre a vida digital e a vida real, com atividades de reflexão, criatividade, respiração e incentivo a conexões fora das telas.</p>
+            <h3>2. Cadastro e acesso</h3>
+            <p>Para criar uma conta, a pessoa informa um endereço de e-mail válido e define uma senha. O Supabase utiliza esses dados para autenticar o acesso. A pessoa é responsável por manter sua senha em sigilo.</p>
+            <h3>3. Aceitação dos termos</h3>
+            <p>Ao marcar a caixa de aceitação e criar a conta, a pessoa declara que leu e concorda com estes termos. O SYNA registra na conta a confirmação, a data e a versão dos termos aceitos.</p>
+            <h3>4. Dados e privacidade</h3>
+            <p>O cadastro na nuvem guarda os dados necessários para autenticação (e-mail) e o registro de aceitação destes termos. O diário, os registros de humor, as atividades e o progresso não são enviados ao Supabase: ficam armazenados localmente no navegador e aparelho utilizados.</p>
+            <p>Por isso, esses registros pessoais não são sincronizados entre aparelhos. Limpar os dados do navegador, desinstalar o aplicativo ou trocar de aparelho pode apagar ou impedir o acesso aos registros locais.</p>
+            <h3>5. Uso responsável</h3>
+            <p>O SYNA tem finalidade educativa e de bem-estar geral. Não é serviço médico, psicológico ou de emergência e não substitui orientação de profissionais qualificados.</p>
+            <h3>6. Segurança</h3>
+            <p>As senhas são gerenciadas pelo serviço de autenticação do Supabase e não são armazenadas pelo SYNA em texto aberto. A pessoa deve evitar compartilhar suas credenciais.</p>
+            <h3>7. Atualizações</h3>
+            <p>Estes termos podem ser atualizados para refletir mudanças no funcionamento do SYNA. Quando houver uma alteração relevante, a versão atualizada será apresentada para nova aceitação.</p>
+            <h3>8. Contato</h3>
+            <p>Em caso de dúvidas sobre o projeto, utilize o canal de contato disponibilizado pela equipe responsável pelo SYNA.</p>
+            <button type="button" class="primary-button" id="closeTermsButton">Voltar ao cadastro</button>
+        </div>`;
+    openSimpleModal(content);
+    document.getElementById("closeTermsButton")?.addEventListener("click", closeExploreModal);
+}
 
 function togglePassword(id) {
 
@@ -643,6 +623,8 @@ function showApp() {
     loadDailyPhrase();
 
     loadMissions();
+    if (isFocusActive()) showFocusScreen();
+    refreshFocusSession();
 
 }
 
@@ -676,6 +658,10 @@ function loadUser() {
 
     document.getElementById("profileDisplayEmail").textContent =
         currentUser.email;
+
+    applyTheme();
+    renderProfilePhoto();
+    updateThemeButton();
 
 
     updateProfileStats();
@@ -795,10 +781,6 @@ function loadDailyPhrase() {
 
 }
 
-
-/* =========================================================
-   HUMOR
-========================================================= */
 
 const moodMessages = {
 
@@ -1264,6 +1246,7 @@ function openExplore(type) {
 
 function closeExploreModal() {
 
+    if (isFocusActive()) { showToast("Seu Modo Foco ainda está ativo. Aguarde o tempo terminar."); return; }
     stopActiveTimer();
 
     document.getElementById("exploreModal")
@@ -1275,6 +1258,9 @@ function closeExploreModal() {
 function renderExplore(type) {
 
     switch (type) {
+
+        case "focus":
+            return renderFocus();
 
         case "breathing":
             return renderBreathing();
@@ -1333,6 +1319,9 @@ function handleModalClick(event) {
 
     const action =
         button.dataset.action;
+
+    if (action === "startFocus") startFocus(Number(button.dataset.minutes));
+    if (action === "finishFocus") finishFocus();
 
 
     if (action === "startBreathing") {
@@ -1607,6 +1596,105 @@ function startBreathing() {
 
 }
 
+
+/* =========================================================
+   MODO FOCO — bloqueio interno com término por horário
+========================================================= */
+function isFocusActive() {
+    return !!(currentUser?.focusSession && currentUser.focusSession.endsAt > Date.now());
+}
+
+function renderFocus() {
+    if (isFocusActive()) {
+        return `<h2 class="modal-title">⏳ Modo Foco ativo</h2><p class="modal-subtitle">As outras áreas do SYNA ficam pausadas até o contador chegar a zero.</p><div class="timer" id="focusTimer">--:--</div><div class="timer-phase">Permaneça neste momento.</div><p class="timer-info">Você pode sair do aplicativo, mas não poderá usar as outras áreas do SYNA enquanto a sessão estiver ativa.</p>`;
+    }
+    return `<h2 class="modal-title">⏳ Modo Foco</h2><p class="modal-subtitle">Escolha um período para se concentrar em uma atividade fora das outras áreas do SYNA.</p><div class="option-card"><strong>Como funciona?</strong><p>Durante a sessão, a navegação interna do SYNA fica bloqueada. O contador continua mesmo se você fechar ou minimizar o aplicativo.</p></div><div class="choice-grid">${[5,10,15,20,30,45].map(m=>`<button class="choice-button" data-action="startFocus" data-minutes="${m}">${m} minutos</button>`).join('')}</div><p class="timer-info">Este recurso não bloqueia outros aplicativos nem impede que o aparelho seja desligado.</p>`;
+}
+
+function startFocus(minutes) {
+    if (!Number.isFinite(minutes) || minutes < 1 || !currentUser) return;
+    currentUser.focusSession = { startedAt: Date.now(), endsAt: Date.now() + minutes * 60000, minutes };
+    saveCurrentUser();
+    showFocusScreen();
+    refreshFocusSession();
+    showToast(`Modo Foco iniciado por ${minutes} minutos.`);
+}
+
+function showFocusScreen() {
+    const modal = document.getElementById('exploreModal');
+    const content = document.getElementById('modalContent');
+    if (!modal || !content) return;
+    content.innerHTML = renderFocus();
+    modal.classList.remove('hidden');
+}
+
+function refreshFocusSession() {
+    if (!currentUser?.focusSession) return;
+    const session = currentUser.focusSession;
+    const remaining = Math.max(0, Math.ceil((session.endsAt - Date.now()) / 1000));
+    if (remaining <= 0) {
+        currentUser.focusSession = null;
+        currentUser.exploreStats.offlineMinutes += session.minutes || 0;
+        currentUser.offlineSessions.push({ minutes: session.minutes || 0, date: new Date().toISOString(), type: 'focus' });
+        saveCurrentUser();
+        const timer = document.getElementById('focusTimer');
+        if (timer) timer.textContent = '00:00';
+        const content = document.getElementById('modalContent');
+        if (content && !document.getElementById('focusComplete')) content.innerHTML = `<div id="focusComplete"><h2 class="modal-title">🎉 Modo Foco concluído!</h2><p class="modal-subtitle">Você reservou ${session.minutes} minutos para estar presente fora das outras áreas do SYNA.</p><button class="modal-action" data-action="finishFocus">Voltar ao SYNA</button></div>`;
+        updateProfileStats();
+        showToast('Modo Foco concluído!');
+        return;
+    }
+    const timer = document.getElementById('focusTimer');
+    if (timer) timer.textContent = `${String(Math.floor(remaining / 60)).padStart(2,'0')}:${String(remaining % 60).padStart(2,'0')}`;
+    if (!activeTimer && !document.hidden) activeTimer = setInterval(() => {
+        if (!currentUser?.focusSession) { clearInterval(activeTimer); activeTimer = null; return; }
+        const left = Math.max(0, Math.ceil((currentUser.focusSession.endsAt - Date.now()) / 1000));
+        const el = document.getElementById('focusTimer');
+        if (el) el.textContent = `${String(Math.floor(left / 60)).padStart(2,'0')}:${String(left % 60).padStart(2,'0')}`;
+        if (left <= 0) { clearInterval(activeTimer); activeTimer = null; refreshFocusSession(); }
+    }, 1000);
+}
+
+function finishFocus() {
+    if (currentUser?.focusSession && currentUser.focusSession.endsAt > Date.now()) return;
+    closeFocusModal();
+}
+function closeFocusModal() {
+    document.getElementById('exploreModal')?.classList.add('hidden');
+    if (activeTimer) { clearInterval(activeTimer); activeTimer = null; }
+}
+
+function handleProfilePhoto(event) {
+    const file = event.target.files?.[0];
+    if (!file || !currentUser) return;
+    if (!file.type.startsWith('image/')) { showToast('Escolha uma imagem válida.'); return; }
+    if (file.size > 2 * 1024 * 1024) { showToast('Escolha uma foto de até 2 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { currentUser.profilePhoto = String(reader.result); saveCurrentUser(); renderProfilePhoto(); showToast('Foto de perfil atualizada neste aparelho.'); };
+    reader.readAsDataURL(file);
+}
+function renderProfilePhoto() {
+    if (!currentUser) return;
+    ['profileInitial','headerInitial'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (currentUser.profilePhoto) { el.innerHTML = `<img src="${currentUser.profilePhoto}" alt="Foto de perfil">`; el.classList.add('has-photo'); }
+        else { el.textContent = (currentUser.name || 'U').charAt(0).toUpperCase(); el.classList.remove('has-photo'); }
+    });
+}
+function applyTheme() {
+    document.documentElement.dataset.theme = currentUser?.theme === 'dark' ? 'dark' : 'light';
+}
+function updateThemeButton() {
+    const button = document.getElementById('themeToggleButton');
+    if (button) button.textContent = currentUser?.theme === 'dark' ? '☀️ Ativar tema claro' : '🌙 Ativar tema escuro';
+}
+function toggleTheme() {
+    if (!currentUser) return;
+    currentUser.theme = currentUser.theme === 'dark' ? 'light' : 'dark';
+    saveCurrentUser(); applyTheme(); updateThemeButton();
+}
 
 /* =========================================================
    MOMENTO OFF
@@ -3011,48 +3099,21 @@ function editProfile() {
 }
 
 
-function changePassword() {
-
-    const current =
-        prompt("Digite sua senha atual:");
-
-
-    if (current !== currentUser.password) {
-
-        showToast("Senha atual incorreta.");
-
-        return;
-
-    }
-
-
-    const newPassword =
-        prompt(
-            "Digite sua nova senha:"
-        );
-
-
+async function changePassword() {
+    const newPassword = prompt("Digite sua nova senha (mínimo de 6 caracteres):");
     if (!newPassword || newPassword.length < 6) {
-
-        showToast(
-            "A nova senha precisa ter pelo menos 6 caracteres."
-        );
-
+        showToast("A nova senha precisa ter pelo menos 6 caracteres.");
         return;
-
     }
-
-
-    currentUser.password =
-        newPassword;
-
-
-    saveCurrentUser();
-
-    showToast("Senha alterada com sucesso.");
-
+    try {
+        const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+        showToast("Senha alterada com sucesso.");
+    } catch (error) {
+        console.error("Erro ao alterar senha:", error);
+        showToast("Não foi possível alterar a senha. Tente novamente.");
+    }
 }
-
 
 function showAchievements() {
 
@@ -3135,22 +3196,18 @@ function openSimpleModal(content) {
    LOGOUT
 ========================================================= */
 
-function logout() {
-
-    localStorage.removeItem(SESSION_KEY);
-
-    currentUser = null;
-
-    showToast("Você saiu da conta.");
-
-    setTimeout(() => {
-
-        showScreen("loginScreen");
-
-    }, 500);
-
+async function logout() {
+    try {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) throw error;
+        currentUser = null;
+        showToast("Você saiu da conta.");
+        setTimeout(() => showScreen("loginScreen"), 400);
+    } catch (error) {
+        console.error("Erro ao sair:", error);
+        showToast("Não foi possível encerrar a sessão. Tente novamente.");
+    }
 }
-
 
 /* =========================================================
    TIMER

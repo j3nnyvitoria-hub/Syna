@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SYNA</title>
-<link rel="stylesheet" href="style.css">
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#7C3AED">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SYNA">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SYNA</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="./manifest.json">
+
+    <meta name="theme-color" content="#7C3AED">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SYNA">
 </head>
+<body>
 <script>
 if ("serviceWorker" in navigator) {
    window.addEventListener("load", () => {
@@ -99,67 +103,100 @@ if ("serviceWorker" in navigator) {
 
 <!-- ================= CADASTRO ================= -->
 <section id="registerScreen" class="screen auth-screen hidden">
-<div class="auth-box">
-<div class="mini-logo">SYNA</div>
-<h1>Crie sua conta</h1>
-<p class="auth-subtitle">
-               Comece a cuidar do seu equilíbrio.
-</p>
-<form id="registerForm">
-<label>Nome</label>
-<input
-                   type="text"
-                   id="registerName"
-                   placeholder="Como podemos te chamar?"
-                   required
->
-<label>E-mail</label>
-<input
-                   type="email"
-                   id="registerEmail"
-                   placeholder="seu@email.com"
-                   required
->
-<label>Senha</label>
-<div class="password-box">
-<input
-                       type="password"
-                       id="registerPassword"
-                       placeholder="Crie uma senha"
-                       required
->
-<button
-                       type="button"
-                       id="showRegisterPassword"
-                       class="eye-button"
->
-                       ◉
-</button>
-</div>
-<label>Confirme sua senha</label>
-<input
-                   type="password"
-                   id="registerPassword2"
-                   placeholder="Digite novamente"
-                   required
->
-<label class="terms">
-<input type="checkbox" id="terms" required>
-<span>
-                       Aceito os termos de uso do SYNA.
-</span>
-</label>
-<button class="primary-button" type="submit">
-                   Criar minha conta
-</button>
-</form>
-<p class="switch-auth">
-               Já possui uma conta?
-<button id="backToLogin" class="link-button">
-                   Entrar
-</button>
-</p>
-</div>
+
+    <div class="auth-box">
+
+        <div class="mini-logo">SYNA</div>
+
+        <h1>Crie sua conta</h1>
+
+        <p class="auth-subtitle">
+            Comece a cuidar do seu equilíbrio.
+        </p>
+
+        <form id="registerForm">
+
+            <label for="registerName">Nome</label>
+            <input
+                type="text"
+                id="registerName"
+                placeholder="Como podemos te chamar?"
+                required
+            >
+
+            <label for="registerEmail">E-mail</label>
+            <input
+                type="email"
+                id="registerEmail"
+                placeholder="seu@email.com"
+                required
+            >
+
+            <label for="registerPassword">Senha</label>
+
+            <div class="password-box">
+                <input
+                    type="password"
+                    id="registerPassword"
+                    placeholder="Crie uma senha"
+                    required
+                >
+
+                <button
+                    type="button"
+                    id="showRegisterPassword"
+                    class="eye-button"
+                >
+                    ◉
+                </button>
+            </div>
+
+            <label for="registerPassword2">Confirme sua senha</label>
+
+            <input
+                type="password"
+                id="registerPassword2"
+                placeholder="Digite novamente"
+                required
+            >
+
+            <label class="terms">
+                <input type="checkbox" id="terms" required>
+
+                <span>
+                    Li e aceito os termos de uso do SYNA.
+                </span>
+            </label>
+
+            <div class="terms-read">
+                <button
+                    type="button"
+                    id="openTerms"
+                    class="link-button"
+                >
+                    📄 Ler os termos de uso
+                </button>
+            </div>
+
+            <button class="primary-button" type="submit">
+                Criar minha conta
+            </button>
+
+        </form>
+
+        <p class="switch-auth">
+            Já possui uma conta?
+
+            <button
+                id="backToLogin"
+                class="link-button"
+                type="button"
+            >
+                Entrar
+            </button>
+        </p>
+
+    </div>
 </section>
 
 <!-- ================= APP ================= -->
@@ -345,6 +382,8 @@ if ("serviceWorker" in navigator) {
 </div>
 
 <div class="explore-grid">
+<button class="explore-card focus-card" data-explore="focus" type="button">
+<span class="explore-icon">⏳</span><div><strong>Modo Foco</strong><small>Escolha um tempo e faça uma pausa das outras áreas do SYNA.</small></div><b>›</b></button>
 
 <button
                        class="explore-card"
@@ -518,6 +557,9 @@ if ("serviceWorker" in navigator) {
 </div>
 
 <div class="profile-actions">
+<button id="photoProfileButton" class="secondary-button" type="button">📷 Alterar foto de perfil</button>
+<input id="profilePhotoInput" type="file" accept="image/*" hidden>
+<button id="themeToggleButton" class="secondary-button" type="button">🌙 Ativar tema escuro</button>
 <button id="editProfileButton" class="secondary-button">
                        Editar perfil
 </button>
@@ -559,28 +601,39 @@ if ("serviceWorker" in navigator) {
 </nav>
 </section>
 
-<!-- ================= MODAL EXPLORAR ================= -->
+<!-- MODAL DOS TERMOS E ATIVIDADES -->
 <div id="exploreModal" class="modal hidden">
-<div
-           id="modalOverlay"
-           class="modal-overlay"
-></div>
-<div class="modal-card">
-<button
-               id="closeExploreModal"
-               class="modal-close"
-               type="button"
->
-               ×
-</button>
-<div id="modalContent"></div>
-</div>
+
+    <div
+        id="modalOverlay"
+        class="modal-overlay"
+    ></div>
+
+    <div class="modal-card">
+
+        <button
+            id="closeExploreModal"
+            class="modal-close"
+            type="button"
+        >
+            ×
+        </button>
+
+        <div id="modalContent"></div>
+
+    </div>
 </div>
 
-<!-- ================= TOAST ================= -->
 <div id="toast" class="toast"></div>
 
 <script src="./script.js"></script>
+
+</body>
+</html>
+
+<!-- ================= TOAST ================= -->
+<div id="toast" class="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./script.js"></script>
 <script>
 if ("serviceWorker" in navigator) {

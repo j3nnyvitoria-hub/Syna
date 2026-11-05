@@ -1,0 +1,33 @@
+SYNA — versão com cadastro simplificado via Supabase
+
+ARQUIVOS
+- index.html
+- script.js
+- style.css
+
+INSTALAÇÃO
+1. Faça uma cópia de segurança da pasta atual syna-app.
+2. Substitua index.html e script.js pelos arquivos deste pacote.
+3. Mantenha seu style.css atual; o arquivo incluído é uma cópia do estilo existente.
+4. Não substitua manifest.json, sw.js nem a pasta de imagens.
+5. Abra o aplicativo por um servidor local (não pelo endereço file://) para testar.
+
+CONFIGURAÇÃO SUPABASE
+- O Email provider deve continuar habilitado em Authentication > Sign In / Providers.
+- Confirme o e-mail para ativar a conta se a confirmação estiver habilitada.
+- Em Authentication > URL Configuration, configure Site URL e Redirect URLs para o endereço publicado do seu SYNA (e o endereço local de teste, se necessário).
+- Não é necessário criar tabela SQL para esta versão simplificada.
+
+O QUE É SALVO NA NUVEM
+- E-mail e credenciais de autenticação gerenciadas pelo Supabase.
+- Metadados de aceitação dos termos (true, data e versão).
+
+O QUE FICA LOCAL
+- Diário, registros de humor, atividades, missões, XP, sequência e preferências do app.
+- Esses dados não são sincronizados entre aparelhos. Cada aparelho/navegador terá seus próprios dados locais.
+
+IMPORTANTE
+- A conta pode ser usada em qualquer aparelho, mas os registros pessoais ficam no aparelho onde foram criados.
+- Limpar dados do navegador, desinstalar o app ou trocar de aparelho pode fazer os registros locais deixarem de estar disponíveis.
+- O código não armazena a senha em texto aberto; o Supabase Auth gerencia a autenticação.
+- O aceite é guardado em user_metadata da conta para este projeto. Para um registro jurídico imutável, seria necessária uma implementação de servidor mais robusta.
