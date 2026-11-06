@@ -1,4 +1,5 @@
 
+
 const SUPABASE_URL = "https://bepocqfohmkrrdzmowrv.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_PHXFNYdmHo5i8sRdxi23Hg_KsjbwCz3";
 const LEGACY_USERS_KEY = "SYNA_USERS";
@@ -493,18 +494,21 @@ async function createAccount() {
 
     try {
         const acceptedAt = new Date().toISOString();
-        const { data, error } = await supabaseClient.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    name,
-                    terms_accepted: true,
-                    terms_accepted_at: acceptedAt,
-                    terms_version: TERMS_VERSION
-                }
-            }
-        });
+       
+const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+        emailRedirectTo: "https://j3nnyvitoria-hub.github.io/Syna/",
+        data: {
+            name,
+            terms_accepted: true,
+            terms_accepted_at: acceptedAt,
+            terms_version: TERMS_VERSION
+        }
+    }
+});
+
         if (error) throw error;
 
         if (data.session && data.user) {
